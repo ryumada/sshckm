@@ -22,7 +22,7 @@ readonly VPS_CSV_FILE="${SCRIPT_DIR}/vps_list.csv"
 readonly VERSION="0.1.0"
 
 readonly ENV_FILE="${SCRIPT_DIR}/.env"
-readonly SSH_IDENTITY_FILE="${HOME}/.ssh/sshfile4sshmanager"
+readonly SSH_IDENTITY_FILE="${HOME}/.ssh/sshckm"
 
 # --- Logging Functions & Colors ---
 # Define colors for log messages
