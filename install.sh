@@ -18,6 +18,43 @@ If no option is provided, you will be prompted to choose.
 USAGE
 }
 
+# Warn user if required config files are missing or uninitialized
+warn_config_state() {
+  local env_path="${REPO_DIR}/.env"
+  local csv_path="${REPO_DIR}/vps_list.csv"
+  local had_warn=0
+
+  if [[ ! -f "$env_path" ]]; then
+    echo "WARNING: Missing .env at $env_path" >&2
+    echo "  - Copy from example: cp '${REPO_DIR}/.env.example' '$env_path' and edit values" >&2
+    had_warn=1
+  else
+    if grep -q 'enter_' "$env_path" 2>/dev/null; then
+      echo "WARNING: .env contains placeholder values (enter_...). Edit before use." >&2
+      had_warn=1
+    fi
+  fi
+
+  if [[ ! -f "$csv_path" ]]; then
+    echo "WARNING: Missing vps_list.csv at $csv_path" >&2
+    echo "  - Copy from example: cp '${REPO_DIR}/vps_list.csv.example' '$csv_path' and add your hosts (keep the header)" >&2
+    had_warn=1
+  else
+    # Light header sanity check (header is required because the script uses tail -n +2)
+    local first
+    first="$(head -n1 "$csv_path" 2>/dev/null || true)"
+    if ! printf '%s' "$first" | grep -qiE '\bip\b' || ! printf '%s' "$first" | grep -qiE '\bport\b'; then
+      echo "WARNING: vps_list.csv first line doesn't look like a header." >&2
+      echo "  - Expected header: vps_name,ip,port,username" >&2
+      had_warn=1
+    fi
+  fi
+
+  if [[ "$had_warn" -eq 1 ]]; then
+    echo "Tip: verify paths with 'sshckm --config-paths' and list names with 'sshckm --vps-names'" >&2
+  fi
+}
+
 # Resolve repo dir for sshckm.sh (follow symlinks)
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ]; do
@@ -63,6 +100,7 @@ if [[ "$choice" == "local" ]]; then
   mkdir -p "$target_dir"
   ln -sfn "$SCRIPT_FILE" "$target_link"
   echo "Installed local symlink: $target_link -> $SCRIPT_FILE"
+  warn_config_state
   case ":${PATH}:" in
     *":${target_dir}:"*) ;;
     *) echo "Note: $target_dir is not in PATH. Add to your shell rc." ;;
@@ -103,6 +141,7 @@ if [[ "$choice" == "system" ]]; then
     echo "Permission required. Try: sudo ln -sfn '$SCRIPT_FILE' '$target_link'" >&2
     exit 1
   fi
+  warn_config_state
   echo "To enable bash completion for this session: source <(sshckm --completion)"
   # Offer to install global completion in /etc/profile.d (system-wide)
   if [[ -t 1 ]]; then
