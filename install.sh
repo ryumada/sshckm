@@ -68,7 +68,7 @@ if [[ "$choice" == "local" ]]; then
     *) echo "Note: $target_dir is not in PATH. Add to your shell rc." ;;
   esac
   echo "To enable bash completion for this session: source <(sshckm --completion)"
-  # Offer to add completion to ~/.bashrc
+  # Offer to add completion to ~/.bashrc (local install)
   rc_file="${HOME}/.bashrc"
   if [[ -w "$rc_file" ]]; then
     if ! grep -qsF "source <(sshckm --completion)" "$rc_file"; then
@@ -78,10 +78,11 @@ if [[ "$choice" == "local" ]]; then
         if [[ "$ans" =~ ^([yY]|[yY][eE][sS])$ ]]; then
           {
             echo ""
-            echo "# sshckm completion (added by sshckm install.sh)"
+            echo "# sshckm completion (added by sshckm install.sh BEGIN)"
             echo "if command -v sshckm >/dev/null 2>&1; then"
             echo "  source <(sshckm --completion)"
             echo "fi"
+            echo "# sshckm completion (added by sshckm install.sh END)"
           } >> "$rc_file"
           echo "Appended completion block to $rc_file"
         else
@@ -103,26 +104,29 @@ if [[ "$choice" == "system" ]]; then
     exit 1
   fi
   echo "To enable bash completion for this session: source <(sshckm --completion)"
-  # Offer to add completion to ~/.bashrc (user shell)
-  rc_file="${HOME}/.bashrc"
-  if [[ -w "$rc_file" ]]; then
-    if ! grep -qsF "source <(sshckm --completion)" "$rc_file"; then
-      if [[ -t 1 ]]; then
-        echo -n "Add sshckm bash completion to ~/.bashrc for future sessions? [y/N]: "
-        read -r ans
-        if [[ "$ans" =~ ^([yY]|[yY][eE][sS])$ ]]; then
-          {
-            echo ""
-            echo "# sshckm completion (added by sshckm install.sh)"
-            echo "if command -v sshckm >/dev/null 2>&1; then"
-            echo "  source <(sshckm --completion)"
-            echo "fi"
-          } >> "$rc_file"
-          echo "Appended completion block to $rc_file"
-        else
-          echo "Skipped updating $rc_file. You can add: source <(sshckm --completion)"
-        fi
+  # Offer to install global completion in /etc/profile.d (system-wide)
+  if [[ -t 1 ]]; then
+    echo -n "Install global bash completion in /etc/profile.d/sshckm.sh? [y/N]: "
+    read -r ans
+    if [[ "$ans" =~ ^([yY]|[yY][eE][sS])$ ]]; then
+      dest="/etc/profile.d/sshckm.sh"
+      tmp="$(mktemp)"
+      {
+        echo "# sshckm bash completion (installed by sshckm install.sh)"
+        echo "# Only for bash shells"
+        echo "if [ -n \"$BASH_VERSION\" ]; then"
+        echo "  if command -v sshckm >/dev/null 2>&1; then"
+        echo "    source <(sshckm --completion)"
+        echo "  fi"
+        echo "fi"
+      } > "$tmp"
+      if install -m 0644 "$tmp" "$dest" 2>/dev/null; then
+        echo "Installed global completion: $dest"
+      else
+        echo "Permission required. Run this to install completion globally:" >&2
+        echo "  sudo install -m 0644 '$tmp' '$dest'" >&2
       fi
+      rm -f "$tmp"
     fi
   fi
   exit 0

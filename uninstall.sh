@@ -60,6 +60,13 @@ if [[ "$choice" == "system" ]]; then
     echo "Permission required. Try: sudo rm -f '$target_link'" >&2
     exit 1
   fi
+  # Attempt to remove global completion from profile.d
+  profile_file="/etc/profile.d/sshckm.sh"
+  if rm -f "$profile_file" 2>/dev/null; then
+    echo "Removed: $profile_file"
+  else
+    echo "Permission required to remove global completion. Try: sudo rm -f '$profile_file'" >&2
+  fi
   exit 0
 fi
 

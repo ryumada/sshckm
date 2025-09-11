@@ -31,16 +31,19 @@ Use it:
 
 **Install (system-wide, symlink, may require sudo)**
 - `./install.sh --system` (if permission denied, rerun with sudo)
+- Optional: Install global bash completion to all users via `/etc/profile.d/sshckm.sh` (prompted by installer). This requires root.
 
 **Uninstall**
 - Local: `./uninstall.sh --local`
 - System: `./uninstall.sh --system`
+  - Also removes `/etc/profile.d/sshckm.sh` if present (requires root or will print the sudo command)
 
 **Enable Bash completion**
 - One-time for current session: `source <(sshckm --completion)`
 - Persist for new sessions (bash): add this to `~/.bashrc`:
   - `if command -v sshckm >/dev/null 2>&1; then source <(sshckm --completion); fi`
 - The installer will offer to append this line to your `~/.bashrc` automatically.
+ - System-wide alternative (all users): installer can create `/etc/profile.d/sshckm.sh` that sources completion when `sshckm` is present.
 
 **Utility flags**
 - `--script-path`: prints the resolved script file path (follows symlinks)
