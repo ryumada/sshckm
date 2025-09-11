@@ -16,21 +16,36 @@ Note: The script is currently named `sshckm.sh`. Expose it as the `sshckm` comma
 - Bash (tested with bash)
 
 **Files**
-- `vps_list.csv`: host inventory. Format: `name,ip,port,username`
+- `vps_list.csv`: host inventory. Header required. Rows format: `name,ip,port,username`
 - `.env`: required configuration (copy from `.env.example` and edit)
 
 **Install (user local)**
 - Ensure executable: `chmod +x sshckm.sh`
-- Add a symlinked command:
-  - `mkdir -p ~/.local/bin`
-  - `ln -sf "$(pwd)/sshckm.sh" ~/.local/bin/sshckm`
+- Use the helper script to install locally (recommended):
+  - `./install.sh --local`
+- Or interactively choose local/system: `./install.sh`
 - Ensure `~/.local/bin` is on your `PATH`.
 
 Use it:
 - `sshckm connect my_server`
 
-**Install (system-wide, requires sudo)**
-- `sudo install -m 0755 sshckm.sh /usr/local/bin/sshckm`
+**Install (system-wide, symlink, may require sudo)**
+- `./install.sh --system` (if permission denied, rerun with sudo)
+
+**Uninstall**
+- Local: `./uninstall.sh --local`
+- System: `./uninstall.sh --system`
+
+**Enable Bash completion**
+- One-time for current session: `source <(sshckm --completion)`
+- Persist for new sessions (bash): add this to `~/.bashrc`:
+  - `if command -v sshckm >/dev/null 2>&1; then source <(sshckm --completion); fi`
+- The installer will offer to append this line to your `~/.bashrc` automatically.
+
+**Utility flags**
+- `--script-path`: prints the resolved script file path (follows symlinks)
+- `--script-dir`: prints the resolved script directory
+- `--config-paths`: prints where `.env` and `vps_list.csv` are looked up
 
 **Path behavior**
 - The script resolves `vps_list.csv` and `.env` relative to the script location (via `SCRIPT_DIR`), so it works from any directory.
@@ -38,7 +53,7 @@ Use it:
 **Setup**
 - Copy examples and edit values:
   - `cp .env.example .env` and update all placeholders
-  - `cp vps_list.csv.example vps_list.csv` and add your hosts
+  - `cp vps_list.csv.example vps_list.csv` and add your hosts (keep the header)
 
 **Usage**
 - Connect: `sshckm connect <name>`
@@ -51,4 +66,4 @@ Use it:
 
 Copyright © 2025 ryumada. All Rights Reserved.
 
-Licensed under the MIT license. See `LICENSE`.
+Licensed under the MIT license. See [LICENSE](LICENSE).
