@@ -122,6 +122,10 @@ function __list_vps_names() {
             cut -d',' -f1 | \
             sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | \
             grep -v '^[[:space:]]*$' || true
+    else
+        echo "WARNING: vps_list.csv not found. Create it next to the script or copy from vps_list.csv.example." >&2
+        echo "Hint: run 'sshckm --config-paths' to see expected locations." >&2
+        return 1
     fi
 }
 
@@ -150,7 +154,8 @@ _sshckm_completion() {
         connect|removekey|rotatekey)
             if [[ ${COMP_CWORD} -eq 2 ]]; then
                 local names
-                names="$($cmd --vps-names 2>/dev/null)"
+                # Allow stderr so the user sees warnings when CSV is missing
+                names="$($cmd --vps-names)"
                 COMPREPLY=( $(compgen -W "$names" -- "$cur") )
                 return 0
             fi
