@@ -1,6 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# --- Logging Functions & Colors (aligned with sshckm.sh) ---
+readonly COLOR_RESET="\033[0m"
+readonly COLOR_INFO="\033[0;34m"
+readonly COLOR_SUCCESS="\033[0;32m"
+readonly COLOR_WARN="\033[0;33m"
+readonly COLOR_ERROR="\033[0;31m"
+
+log() {
+  local color="$1"; local emoji="$2"; local message="$3"
+  echo -e "${color}[$(date +"%Y-%m-%d %H:%M:%S")] ${emoji} ${message}${COLOR_RESET}"
+}
+log_output() { echo "$1"; }
+log_info() { log "${COLOR_INFO}" "ℹ️" "$1"; }
+log_success() { log "${COLOR_SUCCESS}" "✅" "$1"; }
+log_warn() { log "${COLOR_WARN}" "⚠️" "$1"; }
+log_error() { log "${COLOR_ERROR}" "❌" "$1"; }
+
 # Install symlink for sshckm: local (~/.local/bin) or system (/usr/local/bin)
 
 usage() {
@@ -66,7 +83,7 @@ REPO_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 SCRIPT_FILE="${REPO_DIR}/sshckm.sh"
 
 if [[ ! -f "$SCRIPT_FILE" ]]; then
-  echo "Error: sshckm.sh not found at $SCRIPT_FILE" >&2
+  log_error "sshckm.sh not found at $SCRIPT_FILE"
   exit 1
 fi
 chmod +x "$SCRIPT_FILE" || true
@@ -77,11 +94,11 @@ case "${1:-}" in
   --system) choice="system" ;;
   -h|--help) usage; exit 0 ;;
   "") ;;
-  *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
+  *) log_error "Unknown option: $1"; usage; exit 1 ;;
 esac
 
 if [[ -z "$choice" ]]; then
-  echo "Select installation target:" >&2
+  log_info "Select installation target:"
   echo "  1) Local (~/.local/bin/sshckm)" >&2
   echo "  2) System (/usr/local/bin/sshckm)" >&2
   echo -n "Enter 1 or 2 (or q to cancel): " >&2
@@ -89,8 +106,8 @@ if [[ -z "$choice" ]]; then
   case "$ans" in
     1) choice="local" ;;
     2) choice="system" ;;
-    q|Q) echo "Canceled."; exit 0 ;;
-    *) echo "Invalid choice." >&2; exit 1 ;;
+    q|Q) log_warn "Canceled."; exit 0 ;;
+    *) log_error "Invalid choice."; exit 1 ;;
   esac
 fi
 
@@ -99,13 +116,13 @@ if [[ "$choice" == "local" ]]; then
   target_link="${target_dir}/sshckm"
   mkdir -p "$target_dir"
   ln -sfn "$SCRIPT_FILE" "$target_link"
-  echo "Installed local symlink: $target_link -> $SCRIPT_FILE"
+  log_success "Installed local symlink: $target_link -> $SCRIPT_FILE"
   warn_config_state
   case ":${PATH}:" in
     *":${target_dir}:"*) ;;
-    *) echo "Note: $target_dir is not in PATH. Add to your shell rc." ;;
+    *) log_warn "$target_dir is not in PATH. Add it to your shell rc." ;;
   esac
-  echo "To enable bash completion for this session: source <(sshckm --completion)"
+  log_info "Enable completion for this session: source <(sshckm --completion)"
   # Offer to add completion to ~/.bashrc (local install)
   rc_file="${HOME}/.bashrc"
   if [[ -w "$rc_file" ]]; then
@@ -122,9 +139,9 @@ if [[ "$choice" == "local" ]]; then
             echo "fi"
             echo "# sshckm completion (added by sshckm install.sh END)"
           } >> "$rc_file"
-          echo "Appended completion block to $rc_file"
+          log_success "Appended completion block to $rc_file"
         else
-          echo "Skipped updating $rc_file. You can add: source <(sshckm --completion)"
+          log_warn "Skipped updating $rc_file. You can add: source <(sshckm --completion)"
         fi
       fi
     fi
@@ -136,13 +153,14 @@ if [[ "$choice" == "system" ]]; then
   target_dir="/usr/local/bin"
   target_link="${target_dir}/sshckm"
   if ln -sfn "$SCRIPT_FILE" "$target_link" 2>/dev/null; then
-    echo "Installed system symlink: $target_link -> $SCRIPT_FILE"
+    log_success "Installed system symlink: $target_link -> $SCRIPT_FILE"
   else
-    echo "Permission required. Try: sudo ln -sfn '$SCRIPT_FILE' '$target_link'" >&2
+    log_error "Permission required to create $target_link"
+    log_output "Try: sudo ln -sfn '$SCRIPT_FILE' '$target_link'"
     exit 1
   fi
   warn_config_state
-  echo "To enable bash completion for this session: source <(sshckm --completion)"
+  log_info "Enable completion for this session: source <(sshckm --completion)"
   # Offer to install global completion in /etc/profile.d (system-wide)
   if [[ -t 1 ]]; then
     echo -n "Install global bash completion in /etc/profile.d/sshckm.sh? [y/N]: "
@@ -160,10 +178,10 @@ if [[ "$choice" == "system" ]]; then
         echo "fi"
       } > "$tmp"
       if install -m 0644 "$tmp" "$dest" 2>/dev/null; then
-        echo "Installed global completion: $dest"
+        log_success "Installed global completion: $dest"
       else
-        echo "Permission required. Run this to install completion globally:" >&2
-        echo "  sudo install -m 0644 '$tmp' '$dest'" >&2
+        log_error "Permission required to install completion globally"
+        log_output "  sudo install -m 0644 '$tmp' '$dest'"
       fi
       rm -f "$tmp"
     fi
@@ -171,4 +189,4 @@ if [[ "$choice" == "system" ]]; then
   exit 0
 fi
 
-echo "Unexpected state." >&2; exit 1
+log_error "Unexpected state."; exit 1
