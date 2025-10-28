@@ -86,6 +86,7 @@ function show_usage() {
     log_output "  $0 removeallkeys"
     log_output "  $0 rotatekey my_server1"
     log_output "  $0 rotateallkeys"
+    log_output "  $0 transfer <vps_name> <send|receive> <source_path> <destination_path>"
     exit "$exit_code"
 }
 
@@ -100,7 +101,8 @@ function __list_actions() {
         "removekey" \
         "removeallkeys" \
         "rotatekey" \
-        "rotateallkeys"
+        "rotateallkeys" \
+        "transfer"
 }
 
 # Internal helper: list VPS names from CSV (one per line)
@@ -151,7 +153,7 @@ _sshckm_completion() {
     # Second argument: VPS name for actions that require it
     local action="${COMP_WORDS[1]}"
     case "$action" in
-        connect|removekey|rotatekey)
+        connect|removekey|rotatekey|transfer)
             if [[ ${COMP_CWORD} -eq 2 ]]; then
                 local names
                 # Allow stderr so the user sees warnings when CSV is missing
@@ -230,6 +232,56 @@ function connect_vps() {
     else
         log_error "Connection failed. Please check your credentials or network."
         echo
+        exit 1
+    fi
+}
+
+function transfer_file() {
+    local vps_name="$1"
+    local direction="$2"
+    local source_path="$3"
+    local destination_path="$4"
+    local SSH_FILE_FOR_VPS="${SSH_IDENTITY_FILE}-${vps_name}"
+
+    if [[ ! -f "$SSH_FILE_FOR_VPS" ]]; then
+        log_error "The key file ($SSH_FILE_FOR_VPS) to SSH to ${COLOR_RESET}${vps_name}${COLOR_ERROR} is not found. Please create it by running 'rotatekey' action."
+        log_warn "You will be prompted your vps password in order to update the SSH key."
+        echo
+        exit 1
+    fi
+
+    local details errfile
+    errfile=$(mktemp)
+    if ! details=$(get_vps_details "${vps_name}" 2>"$errfile"); then
+        log_error "$(cat "$errfile")"
+        echo
+        rm -f "$errfile"
+        exit 1
+    fi
+    rm -f "$errfile"
+
+    local ip port username
+    read -r ip port username <<< "${details}"
+    local remote_host="${username}@${ip}"
+
+    log_info "Preparing to transfer file..."
+
+    local scp_command
+    if [[ "$direction" == "send" ]]; then
+        log_info "Sending '${source_path}' to '${destination_path}' on ${vps_name}..."
+        scp_command="scp -i '$SSH_FILE_FOR_VPS' -P '$port' '$source_path' '${remote_host}:${destination_path}'"
+    elif [[ "$direction" == "receive" ]]; then
+        log_info "Receiving '${source_path}' from ${vps_name} to '${destination_path}'..."
+        scp_command="scp -i '$SSH_FILE_FOR_VPS' -P '$port' '${remote_host}:${source_path}' '$destination_path'"
+    else
+        log_error "Invalid direction. Please use 'send' or 'receive'."
+        exit 1
+    fi
+
+    if eval "$scp_command"; then
+        log_success "File transfer completed successfully."
+    else
+        log_error "File transfer failed."
         exit 1
     fi
 }
@@ -507,6 +559,10 @@ function main() {
             ;;
         rotateallkeys)
             rotate_all_keys
+            ;;
+        transfer)
+            require_exact_args 4 "transfer" "$@"
+            transfer_file "$@"
             ;;
         *)
             log_error "Invalid action: '${action}'."
