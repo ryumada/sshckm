@@ -444,7 +444,7 @@ function rotate_key() {
     log_success "The new SSH key pair has been generated successfully."
 
     log_info "Copying the new public key to ${COLOR_RESET}${remote_host}${COLOR_INFO} on port ${port}..."
-    if ! ssh-copy-id -f -p "${port}" -i "${SSH_FILE_FOR_VPS}.pub" -o "IdentityFile=${SSH_FILE_FOR_VPS}.bak" -o "StrictHostKeyChecking=accept-new" "${remote_host}" < /dev/tty; then
+    if ! ssh-copy-id -o "PubkeyAuthentication=no" -f -p "${port}" -i "${SSH_FILE_FOR_VPS}.pub" -o "IdentityFile=${SSH_FILE_FOR_VPS}.bak" -o "StrictHostKeyChecking=accept-new" "${remote_host}" < /dev/tty; then
         log_error "Failed to copy the new public key to ${COLOR_RESET}${vps_name}${COLOR_ERROR}. Please check your credentials."
         return 1
     fi
