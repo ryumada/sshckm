@@ -266,19 +266,19 @@ function transfer_file() {
 
     log_info "Preparing to transfer file..."
 
-    local scp_command
+    local rsync_command
     if [[ "$direction" == "send" ]]; then
         log_info "Sending '${source_path}' to '${destination_path}' on ${vps_name}..."
-        scp_command="scp -i '$SSH_FILE_FOR_VPS' -P '$port' '$source_path' '${remote_host}:${destination_path}'"
+        rsync_command="rsync -avzcP --info=progress2 -e 'ssh -i $SSH_FILE_FOR_VPS -p $port' '$source_path' '${remote_host}:${destination_path}'"
     elif [[ "$direction" == "receive" ]]; then
         log_info "Receiving '${source_path}' from ${vps_name} to '${destination_path}'..."
-        scp_command="scp -i '$SSH_FILE_FOR_VPS' -P '$port' '${remote_host}:${source_path}' '$destination_path'"
+        rsync_command="rsync -avzcP --info=progress2 -e 'ssh -i $SSH_FILE_FOR_VPS -p $port' '${remote_host}:${source_path}' '$destination_path'"
     else
         log_error "Invalid direction. Please use 'send' or 'receive'."
         exit 1
     fi
 
-    if eval "$scp_command"; then
+    if eval "$rsync_command"; then
         log_success "File transfer completed successfully."
     else
         log_error "File transfer failed."
