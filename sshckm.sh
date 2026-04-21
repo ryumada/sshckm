@@ -613,8 +613,8 @@ function main() {
             rotate_all_keys
             ;;
         transfer)
-            require_exact_args 4 "transfer" "@"
-            transfer_file "@"
+            require_exact_args 4 "transfer" "$@"
+            transfer_file "$@"
             ;;
         *)
             log_error "Invalid action: '${action}'."
