@@ -53,6 +53,7 @@ function show_usage() {
     log_output ""
     log_output "Actions:"
     log_output "  connect <vps_name>    Connect to a VPS via SSH."
+    log_output "  run <vps_name> <cmd> Run a command on a VPS via SSH."
     log_output "  removekey <vps_name>  Remove SSH key for a single VPS."
     log_output "  removeallkeys         Remove SSH keys for all VPS."
     log_output "  rotatekey <vps_name>  Rotate SSH keys on a VPS."
@@ -82,6 +83,7 @@ function show_usage() {
     log_output ""
     log_output "Examples:"
     log_output "  $0 connect my_server1"
+    log_output "  $0 run my_server1 'ls -la /tmp'"
     log_output "  $0 removekey my_server1"
     log_output "  $0 removeallkeys"
     log_output "  $0 rotatekey my_server1"
@@ -98,6 +100,7 @@ function show_version() {
 function __list_actions() {
     printf "%s\n" \
         "connect" \
+        "run" \
         "removekey" \
         "removeallkeys" \
         "rotatekey" \
@@ -153,7 +156,7 @@ _sshckm_completion() {
     # Second argument: VPS name for actions that require it
     local action="${COMP_WORDS[1]}"
         case "$action" in
-        connect|removekey|rotatekey|transfer)
+        connect|run|removekey|rotatekey|transfer)
             if [[ ${COMP_CWORD} -eq 2 ]]; then
                 local names
                 # Allow stderr so the user sees warnings when CSV is missing
@@ -174,6 +177,10 @@ _sshckm_completion() {
             if [[ "$action" == "transfer" && ${COMP_CWORD} -eq 5 ]]; then
                 # Complete file paths for destination/source
                 COMPREPLY=( $(compgen -f -- "$cur") )
+                return 0
+            fi
+            if [[ "$action" == "run" && ${COMP_CWORD} -ge 3 ]]; then
+                COMPREPLY=( $(compgen -c -- "$cur") )
                 return 0
             fi
             ;;
@@ -503,6 +510,28 @@ function rotate_all_keys() {
     done < <(tail -n +2 "${VPS_CSV_FILE}")
 }
 
+function run_command() {
+    local vps_name="$1"   # First argument: VPS name
+    local cmd="$2"        # Second argument: command to run
+
+    # Fetch VPS details (IP, port, username)
+    local details errfile
+    errfile=$(mktemp)
+    if ! details=$(get_vps_details "$vps_name" 2>"$errfile"); then
+        log_error "$(cat "$errfile")"
+        exit 1
+    fi
+    rm -f "$errfile"
+
+    local ip port username
+    read -r ip port username <<< "$details"
+    local remote_host="${username}@${ip}"
+
+    # Execute command via SSH
+    log_info "Running '$cmd' on $vps_name"
+    ssh -i "$SSH_IDENTITY_FILE-$vps_name" -p "$port" "$remote_host" "$cmd"
+}
+
 function main() {
     # Global options (handled before any validation)
     case "${1:-}" in
@@ -561,6 +590,14 @@ function main() {
             require_exact_args 1 "${action}" "$@"
             connect_vps "$@"
             ;;
+        run)
+            if [ "$#" -lt 2 ]; then
+                log_error "Missing required argument <vps_name> for '${action}' action."
+                log_output ""
+                show_usage
+            fi
+            run_command "$@"
+            ;;
         removekey)
             require_exact_args 1 "${action}" "$@"
             remove_key "$@"
@@ -576,8 +613,8 @@ function main() {
             rotate_all_keys
             ;;
         transfer)
-            require_exact_args 4 "transfer" "$@"
-            transfer_file "$@"
+            require_exact_args 4 "transfer" "@"
+            transfer_file "@"
             ;;
         *)
             log_error "Invalid action: '${action}'."
@@ -585,6 +622,38 @@ function main() {
             show_usage 1
             ;;
     esac
+}
+
+function run_command() {
+    local vps_name="$1"
+    shift
+    local cmd="$*"
+    local SSH_FILE_FOR_VPS="${SSH_IDENTITY_FILE}-${vps_name}"
+
+    if [[ ! -f "$SSH_FILE_FOR_VPS" ]]; then
+        log_error "The key file ($SSH_FILE_FOR_VPS) to SSH to ${COLOR_RESET}${vps_name}${COLOR_ERROR} is not found. Please create it by running 'rotatekey' action."
+        log_warn "You will be prompted your vps password in order to update the SSH key."
+        echo
+        exit 1
+    fi
+
+    local details errfile
+    errfile=$(mktemp)
+    if ! details=$(get_vps_details "${vps_name}" 2>"$errfile"); then
+        log_error "$(cat "$errfile")"
+        echo
+        rm -f "$errfile"
+        exit 1
+    fi
+    rm -f "$errfile"
+
+    local ip port username
+    read -r ip port username <<< "${details}"
+    local remote_host="${username}@${ip}"
+
+    log_info "Executing command: ${COLOR_RESET}${cmd}${COLOR_INFO} on ${vps_name}..."
+
+    ssh -i "$SSH_FILE_FOR_VPS" -p "${port}" "${remote_host}" "$cmd"
 }
 
 main "$@"
