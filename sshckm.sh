@@ -152,7 +152,7 @@ _sshckm_completion() {
 
     # Second argument: VPS name for actions that require it
     local action="${COMP_WORDS[1]}"
-    case "$action" in
+        case "$action" in
         connect|removekey|rotatekey|transfer)
             if [[ ${COMP_CWORD} -eq 2 ]]; then
                 local names
@@ -161,8 +161,23 @@ _sshckm_completion() {
                 COMPREPLY=( $(compgen -W "$names" -- "$cur") )
                 return 0
             fi
+            if [[ "$action" == "transfer" && ${COMP_CWORD} -eq 3 ]]; then
+                local dirs="send receive"
+                COMPREPLY=( $(compgen -W "$dirs" -- "$cur") )
+                return 0
+            fi
+            if [[ "$action" == "transfer" && ${COMP_CWORD} -eq 4 ]]; then
+                # Complete file paths for source/destination
+                COMPREPLY=( $(compgen -f -- "$cur") )
+                return 0
+            fi
+            if [[ "$action" == "transfer" && ${COMP_CWORD} -eq 5 ]]; then
+                # Complete file paths for destination/source
+                COMPREPLY=( $(compgen -f -- "$cur") )
+                return 0
+            fi
             ;;
-    esac
+        esac
 
     return 0
 }
